@@ -7,6 +7,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Threading.Tasks;
 
 namespace Blank_TCP_Server.Methods
 {
@@ -57,6 +58,8 @@ namespace Blank_TCP_Server.Methods
 
         public delegate void ChangeListView(string ip, string status);
         public event ChangeListView eventlistview;
+
+        public bool closeallclients = false;
 
         /// <summary>
         /// Create an uninitialized server instance.  
@@ -221,6 +224,14 @@ namespace Blank_TCP_Server.Methods
         /// <param name="e">SocketAsyncEventArg associated with the completed receive operation.</param>
         private void ProcessReceive(SocketAsyncEventArgs e)
         {
+            //if server stop,close all connections
+            if (closeallclients)
+            {
+                CloseClientSocket(e);
+                string msg = "App will close all connetions!";
+                DisplayInfo(msg);
+                return;
+            }
             // Check if the remote host closed the connection.
             if (e.BytesTransferred > 0)
             {
@@ -342,10 +353,12 @@ namespace Blank_TCP_Server.Methods
             }
 
             this.semaphoreAcceptedClients.WaitOne();
+            Console.WriteLine("waitone");
             if (!this.listenSocket.AcceptAsync(acceptEventArg))
             {
                 this.ProcessAccept(acceptEventArg);
             }
+            Console.WriteLine("Done");
         }
 
         #region Dispose
@@ -356,9 +369,6 @@ namespace Blank_TCP_Server.Methods
         {
             this.listenSocket.Close();
             mutex.ReleaseMutex();
-            //listenSocket.Dispose();
-            //readWritePool.Dispose();
-            //socketDic.Clear();
         }
         
         #endregion
@@ -439,6 +449,13 @@ namespace Blank_TCP_Server.Methods
             {
                 Console.WriteLine("{0} Error code: {1}.", e.Message, e.ErrorCode);
             }
+        }
+
+        private void DisplayInfo(string msg)
+        {
+            Console.ForegroundColor = (ConsoleColor)((160 - 1) % 16);
+            Console.WriteLine(msg);
+            Console.ForegroundColor = (ConsoleColor)((60 - 1) % 16);
         }
     }
 }
