@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Blank_TCP_Server.Methods.AsyncAwaitServer;
 
 namespace Blank_TCP_Server.Methods.AsyncAwaitServer
 {
@@ -38,7 +39,9 @@ namespace Blank_TCP_Server.Methods.AsyncAwaitServer
             if (eventlistview != null)
                 eventlistview(ip, status);
         }
-
+        
+        private delegate void DataChanged(Message data);
+        private event DataChanged dataEvent;
 
         public AsyncAwaitServer(int port, int maxConnectedClients)
         {
@@ -61,6 +64,8 @@ namespace Blank_TCP_Server.Methods.AsyncAwaitServer
                 if (task.IsFaulted)
                     task.Wait();
                 //Thread.Sleep(60000); //block here to hold open the server
+                TaskQueue<Message> tq = new TaskQueue<Message>(1);
+                dataEvent += tq.EnqueueTask;
                 while (!isStop)
                 {
                     string msg = Console.ReadLine();
@@ -69,6 +74,7 @@ namespace Blank_TCP_Server.Methods.AsyncAwaitServer
                 }
                 cts.Cancel();
                 listener.Stop();
+                tq.Dispose();
             }
             finally
             {
@@ -149,8 +155,13 @@ namespace Blank_TCP_Server.Methods.AsyncAwaitServer
                     //we can ask for its Result without blocking
                     if (amountReadTask.IsFaulted || amountReadTask.IsCanceled) break;
                     var amountRead = amountReadTask.Result;
-
-                    Console.WriteLine(Encoding.ASCII.GetString(buf, 0, amountRead) + "---From:" + ip);
+                    
+                    Message ms = new Message();
+                    ms.ip = ip;
+                    ms.data = Encoding.ASCII.GetString(buf, 0, amountRead);
+                    dataEvent(ms);
+                    
+                    //Console.WriteLine(Encoding.ASCII.GetString(buf, 0, amountRead) + "---From:" + ip);
                     if (amountRead == 0) break; //end of stream.
                     //await stream.WriteAsync(buf, 0, amountRead, ct)
                     //            .ConfigureAwait(false);
